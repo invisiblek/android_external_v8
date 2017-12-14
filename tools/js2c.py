@@ -36,6 +36,12 @@ import optparse
 import jsmin
 import textwrap
 
+from functools import reduce
+
+try:
+  xrange
+except NameError:
+  xrange = range
 
 class Error(Exception):
   def __init__(self, msg):
@@ -403,14 +409,14 @@ def PrepareSources(source_files, native_type, emit_js):
     An instance of Sources.
   """
   macro_file = None
-  macro_files = filter(IsMacroFile, source_files)
+  macro_files = list(filter(IsMacroFile, source_files))
   assert len(macro_files) in [0, 1]
   if macro_files:
     source_files.remove(macro_files[0])
     macro_file = macro_files[0]
 
   message_template_file = None
-  message_template_files = filter(IsMessageTemplateFile, source_files)
+  message_template_files = list(filter(IsMessageTemplateFile, source_files))
   assert len(message_template_files) in [0, 1]
   if message_template_files:
     source_files.remove(message_template_files[0])
@@ -423,8 +429,8 @@ def PrepareSources(source_files, native_type, emit_js):
     filters = BuildFilterChain(macro_file, message_template_file)
 
   # Sort 'debugger' sources first.
-  source_files = sorted(source_files,
-                        lambda l,r: IsDebuggerFile(r) - IsDebuggerFile(l))
+  def differ_lambda(s): return IsDebuggerFile(s[1]) - IsDebuggerFile(s[0])
+  source_files = sorted(source_files, key = differ_lambda)
 
   source_files_and_contents = [(f, ReadFile(f)) for f in source_files]
 
@@ -470,7 +476,7 @@ def BuildMetadata(sources, source_bytes, native_type):
   raw_sources = "".join(sources.modules)
 
   # The sources are expected to be ASCII-only.
-  assert not filter(lambda value: ord(value) >= 128, raw_sources)
+  assert not all(ord(value) >= 128 for value in raw_sources)
 
   # Loop over modules and build up indices into the source blob:
   get_index_cases = []
